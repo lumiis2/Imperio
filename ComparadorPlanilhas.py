@@ -27,7 +27,7 @@ def criar_janela():
     for loja in lojas:
         submenu_loja.add_command(label=loja, command=lambda l=loja: escolher_loja(l, menu_loja))
 
-    barra_menu.add_cascade(label="Loja", menu=submenu_loja)
+    barra_menu.add_cascade(label="Loja:", menu=submenu_loja)
 
     btn_xlsx = Button(root, text="Adicionar XLSX", command=lambda: carregar_arquivo('xlsx'), width=20, height=3)
     btn_xlsx.pack(pady=20)
@@ -58,23 +58,23 @@ def escolher_loja(name, menu_loja):
     # Escrever na barra superior de menu ao lado de "Loja"
     menu_loja.entryconfigure(0, label=f"Loja: {name}")
 
-    # Ler cada linha da planilha até encontrar o nome
-    # Substitua isso pela lógica real de leitura da planilha
-    with open('sua_planilha.csv', 'r') as file:
-        for linha in file:
-            if name in linha:
-                # Imprime a linha no terminal
-                print(f"Linha encontrada: {linha}")
-                # Retorna o nome quando encontrado
-                return name
 
 def ler_planilha_excel(file_path):
+    global var_name 
+    var_name = "CID. NOVA"
     compare_col = 2
+    num_lines = 0
     try:
-        #o numero de skiprows pode ser o numero da linha do titulo para poder pegar de cada loja corretamente
-        #PENSAR EM COMO IMPLEMENTAR ESSA LOGICA
-        #PENSAR COMO LIDAR COM BAIXAS CRED E DEBITO PRA JA TIRAR
-        excel_data = pd.read_excel(file_path, header=None, skiprows=221)
+
+        excel_data = pd.read_excel(file_path, header=None)
+
+        for index, row in excel_data.iterrows():
+            if row[0] == var_name:
+                num_lines = index + 1
+                break  
+
+        print(num_lines)
+        excel_data = pd.read_excel(file_path, header=None, skiprows=num_lines)
         
         print(f"Valor da coluna {compare_col} na planilha Excel:")
         print(excel_data.iloc[:, compare_col])
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     var_csv = ''
     var_xlsx = ''
     root = None  # Inicializando a variável global root
-
+    var_name = ''
     script_directory = os.path.dirname(os.path.abspath(__file__))
 
     # Define o diretório de trabalho atual
