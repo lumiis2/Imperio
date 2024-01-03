@@ -1,0 +1,9 @@
+# .gitignore
+
+# Arquivos temporários
+*.pyc
+__pycache__/
+
+# Arquivos Excel e CSV
+*.xlsx
+*.csv
