@@ -120,7 +120,7 @@ def processar_arquivos():
 
     Valor_REDE = excel_data[2]
     Valor_w3rp = csv_data['Total']
-    Parcelas = excel_data[11]\
+    Parcelas = excel_data[11]
     
 
     print("W3 para REDE")
