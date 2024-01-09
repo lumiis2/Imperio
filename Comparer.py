@@ -79,24 +79,36 @@ class App(customtkinter.CTk):
     def comparer(self):
         self.process()
         self.open_sheets()
+        self.button_3 = customtkinter.CTkButton(self, text="Rodar Novamente", command=lambda: self.rodar())
+        self.button_3.grid(row=4, column=0, padx=20, pady=10)
+
+    def rodar(self):
+        data = pd.read_excel('Planilhas/excel_diferencas_form.xlsx', header=None, skiprows=1)
+        Valor_REDE = data[2]
+        Valor_w3rp = data[3]
+        print(Valor_REDE)
+        print(Valor_w3rp)
+        check_diff(Valor_w3rp, Valor_REDE, "w3erp")
+        check_diff(Valor_REDE, Valor_w3rp, "REDE")
+        Checando_pares(Valor_REDE, Valor_w3rp)
+        self.formatar_planilha_diferencas(data, 'Planilhas/excel_diferencas_form.xlsx')
+
+
+
 
     def process(self):
         global var_csv, var_xlsx
-
+        
         excel_data = self.excel_read(var_xlsx)
         csv_data = self.csv_read(var_csv)   
-
         Valor_REDE = excel_data[2]
-        Valor_w3rp = csv_data['Total']     
+        Valor_w3rp = csv_data['Total'] 
+    
         print(Valor_REDE)
         print(Valor_w3rp)
         
         check_diff(Valor_w3rp, Valor_REDE, "w3erp")
         check_diff(Valor_REDE, Valor_w3rp, "REDE")
-        print("----------------------------------")
-        
-        #print("REDE para W3")
-        print("----------------------------------")
         Checando_pares(Valor_REDE, Valor_w3rp)
 
         difference_sheet = pd.DataFrame(columns=["Data Recebimento", "Data Original", "Valor_REDE", "Valor_w3rp", "Metodo de Pagamento", "Parcelas", "Diferenca"])
@@ -105,8 +117,8 @@ class App(customtkinter.CTk):
         num_linhas = min(excel_data.shape[0], csv_data.shape[0])
 
         for index in range(num_linhas):
-            Valor_REDE_atual = excel_data.iloc[index, 2]
-            Valor_w3rp_atual = csv_data['Total'].iloc[index]
+            Valor_REDE_atual = Valor_REDE.iloc[index]
+            Valor_w3rp_atual = Valor_w3rp.iloc[index]
 
             diferenca = abs(Valor_REDE_atual - Valor_w3rp_atual)
 
@@ -309,6 +321,7 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
     global w3_storage_s
     global rede_storage_s
     somas_repetidas = {}
+    
 
     # Tolerância para considerar valores como iguais
     tolerancia = 0.03  # 3 centavos
@@ -331,7 +344,7 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
         if not encontrado:
             # Se não encontrado, adicionar como uma nova entrada
             somas_repetidas[elemento_str] = elemento
-
+    print(somas_repetidas)
     # Iterar sobre o dicionário e imprimir as repetições e somas
     for valor, soma in somas_repetidas.items():
         repeticoes = coluna_repetidos[abs(coluna_repetidos.astype(float) - float(valor)) <=0.03].count()
@@ -343,6 +356,7 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
             
             # Imprimir os índices correspondentes
             if not indices_checagem.empty:
+                print(valor)
                 print(f"A soma {soma} está nas linhas {indices_checagem.to_list()} da REDE")
                 if storage == "w3erp":
                     w3_storage.append(float(valor))
@@ -374,7 +388,7 @@ def Checando_pares(coluna_REDE, coluna_w3rp):
             valor_w3rp = coluna_w3rp[i_w3rp]
 
             # Comparação para números de ponto flutuante
-            if abs(valor_REDE - valor_w3rp) < 0.1:
+            if abs(valor_REDE - valor_w3rp) < 0.05:
                 pares_encontrados.append((i_REDE, i_w3rp))
                 encontrado = True
                 break
@@ -419,5 +433,6 @@ if __name__ == "__main__":
     w3_storage = []
     w3_storage_s = []
     pares_encontrados = []
+    rodar = 0
     app = App()
     app.mainloop()
