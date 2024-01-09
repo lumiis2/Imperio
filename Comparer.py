@@ -91,14 +91,13 @@ class App(customtkinter.CTk):
         print(Valor_REDE)
         print(Valor_w3rp)
         
-        #check_diff(Valor_w3rp, Valor_REDE)
-        print("----------------------------------")
+        check_diff(Valor_w3rp, Valor_REDE, "w3erp")
         check_diff(Valor_REDE, Valor_w3rp, "REDE")
+        print("----------------------------------")
         
         #print("REDE para W3")
         print("----------------------------------")
-        check_diff(Valor_w3rp, Valor_REDE, "w3erp")
-        #Checando_pares(Valor_REDE, Valor_w3rp)
+        Checando_pares(Valor_REDE, Valor_w3rp)
 
         difference_sheet = pd.DataFrame(columns=["Data Recebimento", "Data Original", "Valor_REDE", "Valor_w3rp", "Metodo de Pagamento", "Parcelas", "Diferenca"])
 
@@ -139,6 +138,7 @@ class App(customtkinter.CTk):
         global w3_storage
         global w3_storage_s
         global rede_storage_s
+        global pares_encontrados
         wb = Workbook()
         ws = wb.active
 
@@ -188,7 +188,23 @@ class App(customtkinter.CTk):
                 # Destacar em azul se o número da linha está em w3_storage_s
                 if linha_numero in w3_storage_s:
                     celula.fill = PatternFill(start_color="0000FF", end_color="0000FF", fill_type="solid")
-        
+
+        cor_cinza_claro = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+        cor_cinza_escuro = PatternFill(start_color="A9A9A9", end_color="A9A9A9", fill_type="solid")
+
+        for linha_numero, linha in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
+            # Verificar se o índice da linha está em pares encontrados na esquerda
+            if any((linha_numero-2) == par[0] for par in pares_encontrados):
+                # Alternar entre cinza claro e cinza escuro
+                cor = cor_cinza_claro if linha_numero % 2 == 0 else cor_cinza_escuro
+                ws.cell(row=linha_numero, column=3).fill = cor
+
+            # Verificar se o índice da linha está em pares encontrados na direita
+            if any((linha_numero-2) == par[1] for par in pares_encontrados):
+                # Alternar entre cinza claro e cinza escuro
+                cor = cor_cinza_claro if linha_numero % 2 == 0 else cor_cinza_escuro
+                ws.cell(row=linha_numero, column=4).fill = cor
+                
         # Salvar o arquivo Excel
         wb.save(caminho_arquivo)
 
@@ -294,19 +310,31 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
     global rede_storage_s
     somas_repetidas = {}
 
+    # Tolerância para considerar valores como iguais
+    tolerancia = 0.03  # 3 centavos
+
     # Iterar sobre os elementos da coluna
     for elemento in coluna_repetidos:
-        elemento_str = str(round(elemento, 2))
+        elemento_arredondado = round(elemento, 2)
+        elemento_str = str(elemento_arredondado)
 
         # Adicionar o valor ao dicionário ou somar se já existir
-        if elemento_str in somas_repetidas:
-            somas_repetidas[elemento_str] += elemento
-        else:
+        encontrado = False
+        for chave, valor in somas_repetidas.items():
+            chave_arredondada = round(float(chave), 2)
+            if abs(elemento_arredondado - chave_arredondada) <= tolerancia:
+                # Se o valor for semelhante o suficiente, somar ao existente
+                somas_repetidas[chave] += elemento
+                encontrado = True
+                break
+
+        if not encontrado:
+            # Se não encontrado, adicionar como uma nova entrada
             somas_repetidas[elemento_str] = elemento
 
     # Iterar sobre o dicionário e imprimir as repetições e somas
     for valor, soma in somas_repetidas.items():
-        repeticoes = coluna_repetidos[coluna_repetidos.astype(str) == valor].count()
+        repeticoes = coluna_repetidos[abs(coluna_repetidos.astype(float) - float(valor)) <=0.03].count()
 
         if repeticoes >= 2:
             print(f"Repetição do {valor}: {repeticoes} vezes e gera a soma: {soma}")
@@ -326,9 +354,54 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
                 print(f"A soma {soma} não foi encontrada na coluna_checagem")
 
     print("rede storage", rede_storage)
-    print(w3_storage)
-    print(rede_storage_s)
-    print(w3_storage_s)
+    print("w3_storage", w3_storage)
+    print("rede soma", rede_storage_s)
+    print("w3 soma", w3_storage_s)
+
+
+
+def Checando_pares(coluna_REDE, coluna_w3rp):
+    global pares_encontrados
+
+    sem_par_REDE = []
+    sem_par_w3rp = []
+
+    for i_REDE, valor_REDE in enumerate(coluna_REDE):
+        encontrado = False
+        start_index_w3rp = pares_encontrados[-1][1] + 1 if pares_encontrados else 0
+
+        for i_w3rp in range(start_index_w3rp, len(coluna_w3rp)):
+            valor_w3rp = coluna_w3rp[i_w3rp]
+
+            # Comparação para números de ponto flutuante
+            if abs(valor_REDE - valor_w3rp) < 0.1:
+                pares_encontrados.append((i_REDE, i_w3rp))
+                encontrado = True
+                break
+
+        if not encontrado:
+            sem_par_REDE.append((i_REDE, valor_REDE))
+            sem_par_w3rp.append(None)
+
+    print("Pares Encontrados:")
+    for par in pares_encontrados:
+        i_REDE, i_w3rp = par
+        valor_REDE = coluna_REDE[i_REDE]
+        valor_w3rp = coluna_w3rp[i_w3rp]
+        print(f"({i_REDE}: {valor_REDE}, {i_w3rp}: {valor_w3rp})")
+
+    print("\nSem Par na coluna_REDE:")
+    for sem_par in sem_par_REDE:
+        i_REDE, valor_REDE = sem_par
+        print(f"({i_REDE}: {valor_REDE}, None)")
+
+    print("\nSem Par na coluna_w3rp:")
+    for sem_par in sem_par_w3rp:
+        print(f"None")
+
+    print("####################")
+    print(pares_encontrados)
+    return pares_encontrados, sem_par_REDE, sem_par_w3rp
 
 if __name__ == "__main__":
 
@@ -345,5 +418,6 @@ if __name__ == "__main__":
     rede_storage_s = []
     w3_storage = []
     w3_storage_s = []
+    pares_encontrados = []
     app = App()
     app.mainloop()
