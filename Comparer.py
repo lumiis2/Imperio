@@ -1,9 +1,10 @@
 import tkinter
-import tkinter.messagebox
 import customtkinter
-import pandas as pd
-import os
 import subprocess   
+import codecs
+import os
+import tkinter.messagebox
+import pandas as pd
 from tkinter import filedialog
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
@@ -11,12 +12,11 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
-import codecs
 from openpyxl.styles import PatternFill
 from openpyxl.formatting.rule import CellIsRule
 
 
-customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
+customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
 
@@ -24,7 +24,6 @@ class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
-        # configure window
         self.title("Comparador de Planilhas")
         self.geometry(f"{550}x{290}")
 
@@ -46,7 +45,14 @@ class App(customtkinter.CTk):
         self.button_1.grid(row=1, column=0, padx=20, pady=10)
         self.button_2 = customtkinter.CTkButton(self, text="Adicionar w3erp", command=lambda: self.download('csv'))
         self.button_2.grid(row=2, column=0, padx=20, pady=10)
+
+        self.switch = customtkinter.CTkSwitch(master=self.menubar_frame, text="DarkMode", command=lambda: self.change_mode())
+        self.switch.grid(row=0, column=10, padx=30, pady=(5, 5))
         
+    def change_mode(self):
+        global mode
+        mode += 1
+        customtkinter.set_appearance_mode("Light") if mode % 2 == 0 else customtkinter.set_appearance_mode("Dark")
 
 
     def choose_store(self, store):
@@ -82,8 +88,8 @@ class App(customtkinter.CTk):
         self.button_3 = customtkinter.CTkButton(self, text="Rodar Novamente", command=lambda: self.rodar())
         self.button_3.grid(row=4, column=0, padx=20, pady=10)
 
-    def rodar(self):
-        data = pd.read_excel('Planilhas/excel_diferencas_form.xlsx', header=None, skiprows=1)
+    def rodar(self, verbose=False):
+        data = pd.read_excel('excel_diferencas_form.xlsx', header=None, skiprows=1)
         Valor_REDE = data[2]
         Valor_w3rp = data[3]
         print(Valor_REDE)
@@ -91,21 +97,34 @@ class App(customtkinter.CTk):
         check_diff(Valor_w3rp, Valor_REDE, "w3erp")
         check_diff(Valor_REDE, Valor_w3rp, "REDE")
         Checando_pares(Valor_REDE, Valor_w3rp)
-        self.formatar_planilha_diferencas(data, 'Planilhas/excel_diferencas_form.xlsx')
+        self.formatar_planilha_diferencas(data, 'excel_diferencas_form.xlsx')
+
+    def ajustar_tamanho(self, excel_data, csv_data):
+        # Obtém o número máximo de linhas entre os dois DataFrames
+        num_linhas = max(excel_data.shape[0], csv_data.shape[0])
+
+        # Adiciona linhas nulas no DataFrame do Excel, se necessário
+        linhas_faltantes = num_linhas - excel_data.shape[0]
+        if linhas_faltantes > 0:
+            linhas_nulas = pd.DataFrame(index=range(excel_data.shape[0], num_linhas))
+            excel_data = pd.concat([excel_data, linhas_nulas])
+
+        # Agora, os dois DataFrames têm o mesmo número de linhas
+        return excel_data
 
 
-
-
-    def process(self):
+    def process(self, verbose=True):
         global var_csv, var_xlsx
         
         excel_data = self.excel_read(var_xlsx)
         csv_data = self.csv_read(var_csv)   
+        excel_data = self.ajustar_tamanho(excel_data, csv_data)
         Valor_REDE = excel_data[2]
         Valor_w3rp = csv_data['Total'] 
-    
-        print(Valor_REDE)
-        print(Valor_w3rp)
+
+        if verbose:
+            print("Valores Rede:\n",Valor_REDE)
+            print("Valores W3erp:\n",Valor_w3rp)
         
         check_diff(Valor_w3rp, Valor_REDE, "w3erp")
         check_diff(Valor_REDE, Valor_w3rp, "REDE")
@@ -113,9 +132,7 @@ class App(customtkinter.CTk):
 
         difference_sheet = pd.DataFrame(columns=["Data Recebimento", "Data Original", "Valor_REDE", "Valor_w3rp", "Metodo de Pagamento", "Parcelas", "Diferenca"])
 
-        # Use min() para garantir que você está iterando sobre o menor número de linhas entre os dois DataFrames
-        num_linhas = min(excel_data.shape[0], csv_data.shape[0])
-
+        num_linhas = csv_data.shape[0]
         for index in range(num_linhas):
             Valor_REDE_atual = Valor_REDE.iloc[index]
             Valor_w3rp_atual = Valor_w3rp.iloc[index]
@@ -128,19 +145,19 @@ class App(customtkinter.CTk):
                 "Valor_REDE": Valor_REDE_atual,
                 "Valor_w3rp": Valor_w3rp_atual,
                 "Metodo de Pagamento": excel_data.iloc[index, 9],
-                "Parcelas":  excel_data.iloc[index, 11],  # Certifique-se de entender como você deseja preencher esta coluna
+                "Parcelas":  excel_data.iloc[index, 11],  
                 "Diferenca": diferenca
             }
 
             difference_sheet = difference_sheet._append(nova_linha, ignore_index=True)
 
-        self.formatar_planilha_diferencas(difference_sheet, 'Planilhas/excel_diferencas_form.xlsx')
+        self.formatar_planilha_diferencas(difference_sheet, 'excel_diferencas_form.xlsx')
 
-        # Imprimir a tabela de diferenças
-        print("Tabela de Diferenças:")
-        print(difference_sheet)
+        if verbose:
+            print("Tabela de Diferenças:")
+            print(difference_sheet)
 
-        difference_sheet.to_excel('Planilhas/excel_diferencas.xlsx', index=False, float_format="%.2f")
+        difference_sheet.to_excel('excel_diferencas.xlsx', index=False, float_format="%.2f")
     
     
 
@@ -157,19 +174,16 @@ class App(customtkinter.CTk):
         cabeçalhos = list(diferencas.columns)
         ws.append(cabeçalhos)
 
-        # Adicionar os dados ao Excel
-        for r_idx, row in enumerate(diferencas.values, start=2):  # Iniciar a partir da segunda linha (após o cabeçalho)
+        for r_idx, row in enumerate(diferencas.values, start=2):  
             for c_idx, value in enumerate(row, start=1):
                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
             ws[f'G{r_idx}'] = f'=ABS(C{r_idx}-D{r_idx})'
 
-        # Ajustar a largura das colunas com base no tamanho do texto nos cabeçalhos
         for col_idx, col_name in enumerate(diferencas.columns, start=1):
             max_length = max(len(str(col_name)), max(len(str(cell.value)) for cell in ws[col_idx]))
             adjusted_width = (max_length + 2)
             ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
-        # Definir a coluna "Diferenca" em negrito
         for cell in ws['G']:
             cell.font = Font(bold=True)
 
@@ -181,11 +195,9 @@ class App(customtkinter.CTk):
             for celula in linha:
                 valor = celula.value
 
-                # Destacar em amarelo se o valor está em w3_storage
                 if valor in rede_storage:
                     celula.fill = PatternFill(start_color="0000FF", end_color="0000FF", fill_type="solid")
 
-                # Destacar em azul se o número da linha está em w3_storage_s
                 if linha_numero in rede_storage_s:
                     celula.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
@@ -193,11 +205,9 @@ class App(customtkinter.CTk):
             for celula in linha:
                 valor = celula.value
 
-                # Destacar em amarelo se o valor está em w3_storage
                 if valor in w3_storage:
                     celula.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
-                # Destacar em azul se o número da linha está em w3_storage_s
                 if linha_numero in w3_storage_s:
                     celula.fill = PatternFill(start_color="0000FF", end_color="0000FF", fill_type="solid")
 
@@ -205,54 +215,64 @@ class App(customtkinter.CTk):
         cor_cinza_escuro = PatternFill(start_color="A9A9A9", end_color="A9A9A9", fill_type="solid")
 
         for linha_numero, linha in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
-            # Verificar se o índice da linha está em pares encontrados na esquerda
             if any((linha_numero-2) == par[0] for par in pares_encontrados):
-                # Alternar entre cinza claro e cinza escuro
                 cor = cor_cinza_claro if linha_numero % 2 == 0 else cor_cinza_escuro
                 ws.cell(row=linha_numero, column=3).fill = cor
 
-            # Verificar se o índice da linha está em pares encontrados na direita
             if any((linha_numero-2) == par[1] for par in pares_encontrados):
-                # Alternar entre cinza claro e cinza escuro
                 cor = cor_cinza_claro if linha_numero % 2 == 0 else cor_cinza_escuro
                 ws.cell(row=linha_numero, column=4).fill = cor
                 
-        # Salvar o arquivo Excel
         wb.save(caminho_arquivo)
 
     def open_sheets(self):
-        arquivo_diferencas = 'Planilhas/excel_diferencas_form.xlsx'
-
+        arquivo_diferencas = 'excel_diferencas_form.xlsx'
         try:
-            # Abre o arquivo com o aplicativo padrão
             subprocess.Popen(['start', 'excel', arquivo_diferencas], shell=True)
         except Exception as e:
             print(f"Erro ao abrir o arquivo: {e}")
 
 
-    def excel_read(self, file_path):
+    def excel_read(self, file_path, verbose=True):
         global var_name
         compare_col = 2
+        count = 0
+        ind = 0
         global var_skip
         try:
-
             excel_data = pd.read_excel(file_path, header=None)
 
             for index, row in excel_data.iterrows():
                 if row[0] == var_name:
+                    print("Entrou 1")
+                    count += 1
                     var_skip = index + 1
                     if var_name == "CASTELO":
+                        print("Entrou 2")
                         var_skip = index + 2
-                if row[0] in ["CASTELO", "CID. NOVA", "PLANALTO", "CONTAGEM", "NOVA LIMA", "E-COMM"] and row[0] != var_name:
-                    i = index - var_skip
+                if row[0] in ["CASTELO", "CID. NOVA", "PLANALTO", "CONTAGEM", "NOVA LIMA", "E-COMM"] and row[0] != var_name and count != 0:
+                    print("Entrou 3")
+                    ind = index - var_skip
+                    break
+                if var_name == "E-COMM" and row[0] != var_name and count != 0:
+                    print("Entrou 4")
+                    last_row = excel_data.index[-1]
+                    print(last_row)
+                    ind = last_row - var_skip + 1
                     break
 
-            print(var_skip)
-            print("i =", i)
-            excel_data = pd.read_excel(file_path, header=None, skiprows= var_skip, nrows= i)
+            if verbose:
+                print("var_name =", var_name)
+                print(row[0])
+                print("skip =", var_skip)
+                print("ind =", ind)
+                print("index =", index)
             
-            print(f"Valor da coluna {compare_col} na planilha Excel:")
-            print(excel_data.iloc[:, compare_col])
+            excel_data = pd.read_excel(file_path, header=None, skiprows= var_skip, nrows= ind)
+            
+            if verbose:
+                print(f"Valor da coluna {compare_col} na planilha Excel:")
+                print(excel_data.iloc[:, compare_col])
 
             return excel_data
 
@@ -263,47 +283,42 @@ class App(customtkinter.CTk):
 
     def change_to_utf8(self, input_path, output_path):
         #NAO DEU CERTO - TESTAR MAIS DEPOIS
+        #A LEITURA E A CRIACAO DO TXT ESTA FUNCIONANDO
         try:
-            # Abre o arquivo CSV original para leitura
             with open(input_path, 'r', encoding='ISO-8859-1') as file:
-                # Lê as linhas do arquivo CSV
                 lines = file.readlines()
 
-            # Abre o novo arquivo CSV UTF-8 para escrita
-            with codecs.open('Planilhas/output.txt', 'w', encoding='utf-8') as new_file:
-                # Escreve as linhas no novo arquivo CSV UTF-8
+            with codecs.open('output.txt', 'w', encoding='utf-8') as new_file:
                 new_file.writelines(lines)
 
-            account = pd.read_csv("Planilhas/output.txt", 
+            account = pd.read_csv("output.txt", 
                                 delimiter = ';') 
             account.to_csv(output_path, 
                         index = None, encoding='utf-8')
-
             print(f"Arquivo CSV aberto e salvo com sucesso em: {output_path}")
             return output_path
-
+        
         except Exception as e:
             print(f"Ocorreu um erro: {e}")
 
-    def csv_read(self, file_path):
+
+    def csv_read(self, file_path, verbose=False):
         compare_col = 'Total'
-        #file_path = self.change_to_utf8(file_path, 'Planilhas/output.csv')
         print(file_path)
         try:
             csv_data = pd.read_csv(file_path, encoding='utf-8', delimiter=';', header=None, skip_blank_lines=False, names=['Total'])
 
             csv_data = csv_data.dropna(subset=['Total']).apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
 
-            csv_data.to_excel('Planilhas/w3_01-12.xlsx', index=False)
-            csv_data.to_csv('Planilhas/teste3.csv', index= False)
+            csv_data.to_excel('w3_01-12.xlsx', index=False)
+            csv_data.to_csv('teste3.csv', index= False)
 
-            csv_data = pd.read_excel('Planilhas/w3_01-12.xlsx', header=None, names=['Total'], skiprows=2)
-
-            print(f"Valores da coluna {compare_col} na planilha convertida:")
+            csv_data = pd.read_excel('w3_01-12.xlsx', header=None, names=['Total'], skiprows=2)
             csv_data[compare_col] = pd.to_numeric(csv_data[compare_col].replace({r'\.': '', r',': '.'}, regex=True), errors='coerce').fillna(1)
 
-
-            print(csv_data[compare_col])
+            if verbose:
+                print(f"Valores da coluna {compare_col} na planilha convertida:")
+                print(csv_data[compare_col])
 
             return csv_data
         
@@ -313,39 +328,34 @@ class App(customtkinter.CTk):
         
 
 
-def check_diff(coluna_repetidos, coluna_checagem, storage):
+def check_diff(coluna_repetidos, coluna_checagem, storage, verbose=False):
     global var_skip
-    # Criar um dicionário para armazenar as somas dos valores repetidos
     global rede_storage
     global w3_storage
     global w3_storage_s
     global rede_storage_s
+    valores = []
     somas_repetidas = {}
     
 
-    # Tolerância para considerar valores como iguais
-    tolerancia = 0.03  # 3 centavos
+    tolerancia = 0.03
 
-    # Iterar sobre os elementos da coluna
     for elemento in coluna_repetidos:
         elemento_arredondado = round(elemento, 2)
         elemento_str = str(elemento_arredondado)
 
-        # Adicionar o valor ao dicionário ou somar se já existir
         encontrado = False
         for chave, valor in somas_repetidas.items():
             chave_arredondada = round(float(chave), 2)
             if abs(elemento_arredondado - chave_arredondada) <= tolerancia:
-                # Se o valor for semelhante o suficiente, somar ao existente
                 somas_repetidas[chave] += elemento
+                valores.append(elemento)
                 encontrado = True
                 break
 
         if not encontrado:
-            # Se não encontrado, adicionar como uma nova entrada
             somas_repetidas[elemento_str] = elemento
-    print(somas_repetidas)
-    # Iterar sobre o dicionário e imprimir as repetições e somas
+
     for valor, soma in somas_repetidas.items():
         repeticoes = coluna_repetidos[abs(coluna_repetidos.astype(float) - float(valor)) <=0.03].count()
 
@@ -354,9 +364,7 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
 
             indices_checagem = coluna_checagem[abs(coluna_checagem - soma) <= 0.3].index + var_skip
             
-            # Imprimir os índices correspondentes
             if not indices_checagem.empty:
-                print(valor)
                 print(f"A soma {soma} está nas linhas {indices_checagem.to_list()} da REDE")
                 if storage == "w3erp":
                     w3_storage.append(float(valor))
@@ -367,14 +375,16 @@ def check_diff(coluna_repetidos, coluna_checagem, storage):
             else:
                 print(f"A soma {soma} não foi encontrada na coluna_checagem")
 
-    print("rede storage", rede_storage)
-    print("w3_storage", w3_storage)
-    print("rede soma", rede_storage_s)
-    print("w3 soma", w3_storage_s)
+    if verbose:
+        print("Rede storage: ", rede_storage)
+        print("W3 storage: ", w3_storage)
+        print("Rede soma: ", rede_storage_s)
+        print("W3 soma:", w3_storage_s)
+        print("Soma repetidos", somas_repetidas)
 
 
 
-def Checando_pares(coluna_REDE, coluna_w3rp):
+def Checando_pares(coluna_REDE, coluna_w3rp, verbose=False):
     global pares_encontrados
 
     sem_par_REDE = []
@@ -387,7 +397,6 @@ def Checando_pares(coluna_REDE, coluna_w3rp):
         for i_w3rp in range(start_index_w3rp, len(coluna_w3rp)):
             valor_w3rp = coluna_w3rp[i_w3rp]
 
-            # Comparação para números de ponto flutuante
             if abs(valor_REDE - valor_w3rp) < 0.05:
                 pares_encontrados.append((i_REDE, i_w3rp))
                 encontrado = True
@@ -396,26 +405,26 @@ def Checando_pares(coluna_REDE, coluna_w3rp):
         if not encontrado:
             sem_par_REDE.append((i_REDE, valor_REDE))
             sem_par_w3rp.append(None)
+    if verbose:
+        print("Pares Encontrados:")
+        for par in pares_encontrados:
+            i_REDE, i_w3rp = par
+            valor_REDE = coluna_REDE[i_REDE]
+            valor_w3rp = coluna_w3rp[i_w3rp]
+            print(f"({i_REDE}: {valor_REDE}, {i_w3rp}: {valor_w3rp})")
 
-    print("Pares Encontrados:")
-    for par in pares_encontrados:
-        i_REDE, i_w3rp = par
-        valor_REDE = coluna_REDE[i_REDE]
-        valor_w3rp = coluna_w3rp[i_w3rp]
-        print(f"({i_REDE}: {valor_REDE}, {i_w3rp}: {valor_w3rp})")
+        print("\nSem Par na coluna_REDE:")
+        for sem_par in sem_par_REDE:
+            i_REDE, valor_REDE = sem_par
+            print(f"({i_REDE}: {valor_REDE}, None)")
 
-    print("\nSem Par na coluna_REDE:")
-    for sem_par in sem_par_REDE:
-        i_REDE, valor_REDE = sem_par
-        print(f"({i_REDE}: {valor_REDE}, None)")
+        print("\nSem Par na coluna_w3rp:")
+        for sem_par in sem_par_w3rp:
+            print(f"None")
 
-    print("\nSem Par na coluna_w3rp:")
-    for sem_par in sem_par_w3rp:
-        print(f"None")
-
-    print("####################")
-    print(pares_encontrados)
-    return pares_encontrados, sem_par_REDE, sem_par_w3rp
+        print("####################")
+        print(pares_encontrados)
+        return pares_encontrados, sem_par_REDE, sem_par_w3rp
 
 if __name__ == "__main__":
 
@@ -434,5 +443,6 @@ if __name__ == "__main__":
     w3_storage_s = []
     pares_encontrados = []
     rodar = 0
+    mode = 0
     app = App()
     app.mainloop()
