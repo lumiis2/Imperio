@@ -19,7 +19,7 @@ def set_var(self):
         self.temp_var_name = " "
 
 def reset_var(self):
-    self.rede_storage =[]
+    self.rede_storage = []
     self.w3_storage = []
     self.w3_storage_s = []
     self.rede_storage_s = []

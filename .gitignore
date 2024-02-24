@@ -3,8 +3,11 @@
 # Arquivos temporários
 *.pyc
 __pycache__/
+build/
+dist/
 
 # Arquivos Excel e CSV
 *.xlsx
 *.csv
 *.exe
+*.spec
