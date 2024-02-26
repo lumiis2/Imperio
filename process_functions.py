@@ -48,59 +48,57 @@ def reprocess(self, file_type):
         raise ValueError("Tipo de arquivo inválido. Use 'csv' ou 'excel'.")
     download(self, file_type)
 
-def excel_read(self, file_path, verbose=False):
-        compare_col = 2
-        var_skip = 0
-        count = 0
-        ind = 0
+def excel_read(self, file_path, verbose=True):
+    # Definindo variáveis iniciais
+    compare_col = 2
+    count = 0
+    try:
+        # Lendo o arquivo Excel
+        self.excel_data = pd.read_excel(file_path, header=None)
+        print(self.excel_data)
 
-        try:
-            self.excel_data = pd.read_excel(file_path, header=None)
+        # Encontrando var_skip
+        var_skip = self.excel_data[self.excel_data[0] == self.var_name].index.min() + 1
+        if self.var_name == "CASTELO":
+            var_skip += 1
 
-            for index, row in self.excel_data.iterrows():
-                if row[0] == self.var_name:
-                    count += 1
-                    var_skip = index + 1
-                    if self.var_name == "CASTELO":
-                        var_skip = index + 2
-                if row[0] in ["CASTELO", "CID. NOVA", "PLANALTO", "CONTAGEM", "NOVA LIMA", "E-COMM"] and row[0] != self.var_name and count != 0:
-                    ind = index - var_skip
-                    break
-                if self.var_name == "E-COMM" and row[0] != self.var_name and count != 0:
-                    last_row = self.excel_data.index[-1]
-                    ind = last_row - var_skip + 1
-                    break
+        # Encontrando ind
+        relevant_rows = self.excel_data.loc[var_skip:, 0]
+        ind = relevant_rows.isin(["CASTELO", "CID. NOVA", "PLANALTO", "CONTAGEM", "NOVA LIMA", "E-COMM"]).idxmax()
+        if self.var_name == 'E-COMM':
+            last_row = self.excel_data.index[-1]
+            ind = last_row 
 
-            if verbose:
-                print("var_name =", self.var_name)
-                print(row[0])
-                print("skip =", var_skip)
-                print("ind =", ind)
-                print("index =", index)
+        # Extraindo os dados relevantes
+        self.excel_data = self.excel_data.iloc[var_skip:ind]
 
-            self.excel_data = pd.read_excel(file_path, header=None, skiprows=var_skip, nrows=ind)
+        if verbose:
+            print("var_name =", self.var_name)
+            print("skip =", var_skip)
+            print("ind =", ind)
 
-            if verbose:
-                print(f"Valor da coluna {compare_col} na planilha Excel:")
-                print(self.excel_data.iloc[:, compare_col])
+        if verbose:
+            print(f"Valor da coluna {compare_col} na planilha Excel:")
+            print(self.excel_data.iloc[:, compare_col])
 
-            return self.excel_data
+        return self.excel_data
         
-        except FileNotFoundError:
-            print(f"File not found: {file_path}")
-            messagebox.showerror("Erro", "File not found: {file_path}")
-            reprocess(self, 'excel')
-            return self.excel_data
-        except pd.errors.ParserError as e:
-            print(f"Parser error occurred while reading the Excel spreadsheet: {e}")
-            messagebox.showerror("Erro", "Parser error occurred while reading the Excel")
-            reprocess(self, 'excel')
-            return self.excel_data
-        except Exception as e:
-            print(f"An error occurred while reading the Excel spreadsheet: {e}")
-            messagebox.showerror("Erro", "An error occurred while reading the Excel")
-            reprocess(self, 'excel')
-            return self.excel_data
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        messagebox.showerror("Erro", "File not found: {file_path}")
+        reprocess(self, 'excel')
+        return self.excel_data
+    except pd.errors.ParserError as e:
+        print(f"Parser error occurred while reading the Excel spreadsheet: {e}")
+        messagebox.showerror("Erro", "Parser error occurred while reading the Excel")
+        reprocess(self, 'excel')
+        return self.excel_data
+    except Exception as e:
+        print(f"An error occurred while reading the Excel spreadsheet: {e}")
+        messagebox.showerror("Erro", "An error occurred while reading the Excel")
+        reprocess(self, 'excel')
+        return self.excel_data
+
     
 def csv_read(self, file_path, verbose=False):
     compare_col = 'Total'
